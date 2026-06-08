@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../models/cliente.dart';
 import '../models/equipo.dart';
+import '../models/repuesto.dart';
 
 /// =======================================================
 /// Ayudante de base de datos WFC4
@@ -12,6 +13,7 @@ import '../models/equipo.dart';
 /// - Clientes.
 /// - Equipos.
 /// - Notas técnicas.
+/// - Inventario de repuestos.
 /// - Edición.
 /// - Eliminación.
 /// - Consultas.
@@ -38,7 +40,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -88,9 +90,22 @@ class DatabaseHelper {
         FOREIGN KEY (equipo_id) REFERENCES equipos (id) ON DELETE CASCADE
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE repuestos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nombre TEXT NOT NULL,
+        categoria TEXT NOT NULL,
+        cantidad INTEGER NOT NULL,
+        costo_compra REAL NOT NULL,
+        precio_venta REAL NOT NULL,
+        proveedor TEXT NOT NULL
+      )
+    ''');
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    await db.execute('DROP TABLE IF EXISTS repuestos');
     await db.execute('DROP TABLE IF EXISTS notas_tecnicas');
     await db.execute('DROP TABLE IF EXISTS equipos');
     await db.execute('DROP TABLE IF EXISTS clientes');
@@ -208,7 +223,6 @@ class DatabaseHelper {
     );
   }
 
-  /// Guarda una nota técnica para un equipo.
   Future<int> insertarNotaTecnica({
     required int equipoId,
     required String nota,
@@ -226,7 +240,6 @@ class DatabaseHelper {
     );
   }
 
-  /// Obtiene las notas técnicas de un equipo.
   Future<List<Map<String, dynamic>>> obtenerNotasPorEquipo(int equipoId) async {
     final db = await instance.database;
 
@@ -238,12 +251,52 @@ class DatabaseHelper {
     );
   }
 
-  /// Elimina una nota técnica.
   Future<int> eliminarNotaTecnica(int id) async {
     final db = await instance.database;
 
     return await db.delete(
       'notas_tecnicas',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> insertarRepuesto(Repuesto repuesto) async {
+    final db = await instance.database;
+
+    return await db.insert(
+      'repuestos',
+      repuesto.toMap(),
+    );
+  }
+
+  Future<List<Repuesto>> obtenerRepuestos() async {
+    final db = await instance.database;
+
+    final resultado = await db.query(
+      'repuestos',
+      orderBy: 'id DESC',
+    );
+
+    return resultado.map((map) => Repuesto.fromMap(map)).toList();
+  }
+
+  Future<int> actualizarRepuesto(Repuesto repuesto) async {
+    final db = await instance.database;
+
+    return await db.update(
+      'repuestos',
+      repuesto.toMap(),
+      where: 'id = ?',
+      whereArgs: [repuesto.id],
+    );
+  }
+
+  Future<int> eliminarRepuesto(int id) async {
+    final db = await instance.database;
+
+    return await db.delete(
+      'repuestos',
       where: 'id = ?',
       whereArgs: [id],
     );
